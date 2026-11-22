@@ -64,14 +64,15 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusUnauthorized, "invalid_api_key", "invalid proxy API key")
 		return
 	}
+	ids, owner := s.advertisedModels()
 	created := time.Now().Unix()
-	data := make([]map[string]any, 0, len(s.cfg.Models))
-	for _, id := range s.cfg.Models {
+	data := make([]map[string]any, 0, len(ids))
+	for _, id := range ids {
 		data = append(data, map[string]any{
 			"id":       id,
 			"object":   "model",
 			"created":  created,
-			"owned_by": "quickwork",
+			"owned_by": owner,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"object": "list", "data": data})
@@ -492,12 +493,20 @@ func (s *Server) mapModel(model string) string {
 	m := strings.ToLower(strings.TrimSpace(model))
 	m = strings.TrimPrefix(m, "quickwork/")
 	m = strings.TrimPrefix(m, "qw-")
+	if s.cfg.OpenAICompatibleModels {
+		m = strings.TrimPrefix(m, "openai/")
+	}
 	switch m {
 	case "smart", "fast", "balanced", "auto":
 		return m
 	case "":
 		return s.cfg.DefaultModel
 	default:
+		// Advertised OpenAI ids all resolve to the default model; that is the
+		// intended behaviour, not an unknown-model condition worth logging.
+		if s.cfg.OpenAICompatibleModels && isOpenAIModel(m) {
+			return s.cfg.DefaultModel
+		}
 		log.Printf("unknown model %q, using %s", model, s.cfg.DefaultModel)
 		return s.cfg.DefaultModel
 	}

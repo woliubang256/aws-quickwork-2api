@@ -183,6 +183,7 @@ docker compose up -d
   "api_keys": [],
   "models": ["smart", "fast", "balanced", "auto"],
   "default_model": "smart",
+  "openai_compatiable_models": false,
   "request_timeout": "5m",
   "refresh_before": "10m",
   "max_attempts": 3,
@@ -211,6 +212,7 @@ docker compose up -d
 | `api_keys` | `[]` | 允许的本地 API key；为空时关闭鉴权 |
 | `models` | `smart,fast,balanced,auto` | `/v1/models` 返回值与 model 白名单 |
 | `default_model` | `smart` | 未知 model 的映射 |
+| `openai_compatiable_models` | `false` | 为 `true` 时 `/v1/models` 返回 OpenAI 模型名，所有模型都映射到 `default_model` |
 | `request_timeout` | `5m` | 单次上游请求超时 |
 | `refresh_before` | `10m` | token 距离到期小于该值时自动 refresh |
 | `max_attempts` | `3` | 单次请求最多尝试的账号数 |
@@ -227,6 +229,12 @@ docker compose up -d
 | `oauth.timeout` | `1h` | 等待浏览器完成登录的超时 |
 
 时间字段接受 Go duration 字符串（`30s`、`5m`、`1h`）。
+
+### OpenAI 兼容模型列表
+
+把 `openai_compatiable_models` 设为 `true` 后，`GET /v1/models` 不再返回本地别名，而是返回一组 OpenAI 模型 id（`gpt-5.5`、`gpt-5.4`、`gpt-5.4-mini`、`gpt-4o`、`gpt-4.1`、`o3`、`o4-mini` 等），`owned_by` 为 `openai`。这些 id 只用于客户端展示和选择，请求时全部 redirect 到 `default_model`，不会真的调用 OpenAI。
+
+适合客户端把 `/v1/models` 的结果渲染成下拉框、且只认 OpenAI 名字的场景。本地别名（`smart` 等）仍然可用，不受影响。
 
 需要 API key 时，把 key 写进 `api_keys`：
 
