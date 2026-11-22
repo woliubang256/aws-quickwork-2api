@@ -72,7 +72,7 @@ type Config struct {
 	// OpenAICompatibleModels makes GET /v1/models advertise OpenAI model ids
 	// instead of the local aliases. Every advertised id resolves to
 	// DefaultModel; the proxy never routes to OpenAI itself.
-	OpenAICompatibleModels bool `json:"openai_compatiable_models"`
+	OpenAICompatibleModels bool `json:"openai_compatible_models"`
 
 	// Path is the absolute config file path; not serialized.
 	Path string `json:"-"`

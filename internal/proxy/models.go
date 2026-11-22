@@ -1,7 +1,7 @@
 package proxy
 
 // openAIModelIDs is what GET /v1/models advertises when
-// config.openai_compatiable_models is enabled. These ids are cosmetic: the
+// config.openai_compatible_models is enabled. These ids are cosmetic: the
 // proxy never routes to OpenAI, every one of them resolves to
 // config.default_model (see Server.mapModel). They exist so OpenAI-compatible
 // clients that pick a model from the list keep working.
