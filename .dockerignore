@@ -1,0 +1,16 @@
+# VCS and CI
+.git
+.gitignore
+.github
+
+# Build output and local runtime state (may contain credentials)
+bin/
+dist/
+data/
+config.json
+*.log
+
+# Not needed inside the image
+auth/
+*.md
+**/__pycache__/

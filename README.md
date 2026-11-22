@@ -123,6 +123,55 @@ for chunk in client.chat.completions.create(
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
+## Docker
+
+镜像由 GitHub Actions 构建并推送到 GitHub Container Registry：
+
+```bash
+docker pull ghcr.io/woliubang256/aws-quickwork-2api:latest
+```
+
+标签：`latest`（main 分支）、`main`、`v1.2.3` / `1.2` / `1`（Git tag）、`sha-<commit>`。支持 `linux/amd64` 与 `linux/arm64`。
+
+### 启动
+
+```bash
+docker run -d --name quickproxy \
+  -p 8080:8080 \
+  -v quickwork-data:/data \
+  ghcr.io/woliubang256/aws-quickwork-2api:latest
+```
+
+首次启动会在 `/data/config.json` 写入最小配置（`addr` 为 `0.0.0.0:8080`，`database` 为 `quickwork.db`），其余字段取默认值；数据库 `quickwork.db` 同样落在 `/data` 卷里。
+
+### 登录账号
+
+登录需要浏览器配合，直接在容器里跑交互式命令（用 `-manual` 手动粘贴回调 URL，无需容器开放回调端口）：
+
+```bash
+docker run -it --rm -v quickwork-data:/data \
+  ghcr.io/woliubang256/aws-quickwork-2api:latest login -manual
+```
+
+按提示打开 discovery URL，把浏览器地址栏里的完整回调 URL 粘回终端即可。
+
+### 查看账号 / 刷新 token
+
+```bash
+docker exec -it quickproxy quickproxy accounts
+docker exec -it quickproxy quickproxy refresh
+```
+
+### docker compose
+
+```bash
+docker compose up -d
+```
+
+配置见仓库根目录 `docker-compose.yml`。要修改 `api_keys`、`models` 等，编辑卷内 `config.json` 后 `docker restart quickproxy`。
+
+容器以非 root（uid `10001`）运行。改用 bind mount 时需先 `chown -R 10001:10001 ./data`，否则 SQLite 无法建库。只想对本机开放端口，把 `-p 8080:8080` 换成 `-p 127.0.0.1:8080:8080`。
+
 ## 配置 `config.json`
 
 `quickproxy serve` / `login` 在文件不存在时会写入默认配置。完整示例：
