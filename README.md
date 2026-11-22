@@ -232,7 +232,7 @@ docker compose up -d
 
 ### OpenAI 兼容模型列表
 
-把 `openai_compatible_models` 设为 `true` 后，`GET /v1/models` 不再返回本地别名，而是返回一组 OpenAI 模型 id（`gpt-5.5`、`gpt-5.4`、`gpt-5.4-mini`、`gpt-4o`、`gpt-4.1`、`o3`、`o4-mini` 等），`owned_by` 为 `openai`。这些 id 只用于客户端展示和选择，请求时全部 redirect 到 `default_model`，不会真的调用 OpenAI。
+把 `openai_compatible_models` 设为 `true` 后，`GET /v1/models` 不再返回本地别名，而是返回一组 OpenAI 模型 id（`gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-terra`、`gpt-6.1-sol`、`gpt-6-astra`、`gpt-6-luna`、`gpt-5.5`、`o3` 等），`owned_by` 为 `openai`。这些 id 只用于客户端展示和选择，请求时全部 redirect 到 `default_model`，不会真的调用 OpenAI。
 
 适合客户端把 `/v1/models` 的结果渲染成下拉框、且只认 OpenAI 名字的场景。本地别名（`smart` 等）仍然可用，不受影响。
 

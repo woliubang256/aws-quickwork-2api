@@ -31,7 +31,7 @@ func TestAdvertisedModelsHonoursFlag(t *testing.T) {
 	if len(ids) != len(openAIModelIDs) {
 		t.Fatalf("got %d ids, want %d", len(ids), len(openAIModelIDs))
 	}
-	if !isOpenAIModel("gpt-4o") || !isOpenAIModel("o3") {
+	if !isOpenAIModel("gpt-6.2-astra") || !isOpenAIModel("o3") {
 		t.Fatalf("expected common OpenAI ids in the advertised list")
 	}
 }
@@ -43,7 +43,7 @@ func TestMapModelRedirectsAdvertisedIds(t *testing.T) {
 		OpenAICompatibleModels: true,
 	}}
 
-	for _, model := range []string{"gpt-5.4", "GPT-4o", "openai/gpt-4.1-mini", "o3-mini"} {
+	for _, model := range []string{"gpt-6.2-astra", "GPT-6.1-TERRA", "openai/gpt-6.2-sol", "o3"} {
 		if got := s.mapModel(model); got != "smart" {
 			t.Fatalf("mapModel(%q) = %q, want smart", model, got)
 		}
