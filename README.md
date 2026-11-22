@@ -184,6 +184,7 @@ docker compose up -d
   "models": ["smart", "fast", "balanced", "auto"],
   "default_model": "smart",
   "openai_compatible_models": false,
+  "openai_models": [],
   "request_timeout": "5m",
   "refresh_before": "10m",
   "max_attempts": 3,
@@ -213,6 +214,7 @@ docker compose up -d
 | `models` | `smart,fast,balanced,auto` | `/v1/models` 返回值与 model 白名单 |
 | `default_model` | `smart` | 未知 model 的映射 |
 | `openai_compatible_models` | `false` | 为 `true` 时 `/v1/models` 返回 OpenAI 模型名，所有模型都映射到 `default_model` |
+| `openai_models` | `[]` | 覆盖内置 OpenAI 模型清单；留空用内置列表，仅在上一项为 `true` 时生效 |
 | `request_timeout` | `5m` | 单次上游请求超时 |
 | `refresh_before` | `10m` | token 距离到期小于该值时自动 refresh |
 | `max_attempts` | `3` | 单次请求最多尝试的账号数 |
@@ -232,7 +234,7 @@ docker compose up -d
 
 ### OpenAI 兼容模型列表
 
-把 `openai_compatible_models` 设为 `true` 后，`GET /v1/models` 不再返回本地别名，而是返回一组 OpenAI 模型 id（`gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-terra`、`gpt-6.1-sol`、`gpt-6-astra`、`gpt-6-luna`、`gpt-5.5`、`o3` 等），`owned_by` 为 `openai`。这些 id 只用于客户端展示和选择，请求时全部 redirect 到 `default_model`，不会真的调用 OpenAI。
+把 `openai_compatible_models` 设为 `true` 后，`GET /v1/models` 不再返回本地别名，而是返回一组 OpenAI 模型 id（`gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-terra`、`gpt-6.1-sol`、`gpt-6-astra`、`gpt-6-luna`、`gpt-5.5`、`o3` 等），`owned_by` 为 `openai`。这些 id 只用于客户端展示和选择，请求时全部 redirect 到 `default_model`，不会真的调用 OpenAI。清单可以整体替换：在 `openai_models` 里写自己的 id 数组（自动去首尾空格、去重、大小写不敏感），留空则使用内置列表。
 
 适合客户端把 `/v1/models` 的结果渲染成下拉框、且只认 OpenAI 名字的场景。本地别名（`smart` 等）仍然可用，不受影响。
 

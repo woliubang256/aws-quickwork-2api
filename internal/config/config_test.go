@@ -24,3 +24,13 @@ func TestOpenAICompatibleModelsJSONKey(t *testing.T) {
 		t.Fatalf("serialized config must use openai_compatible_models:\n%s", body)
 	}
 }
+
+func TestOpenAIModelsJSONKey(t *testing.T) {
+	var c Config
+	if err := json.Unmarshal([]byte(`{"openai_models":["gpt-6.2-astra","gpt-6.2-sol"]}`), &c); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(c.OpenAIModels) != 2 || c.OpenAIModels[0] != "gpt-6.2-astra" {
+		t.Fatalf("openai_models = %v", c.OpenAIModels)
+	}
+}

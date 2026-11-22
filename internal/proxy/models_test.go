@@ -31,8 +31,52 @@ func TestAdvertisedModelsHonoursFlag(t *testing.T) {
 	if len(ids) != len(openAIModelIDs) {
 		t.Fatalf("got %d ids, want %d", len(ids), len(openAIModelIDs))
 	}
-	if !isOpenAIModel("gpt-6.2-astra") || !isOpenAIModel("o3") {
+	if !on.isAdvertisedOpenAIModel("gpt-6.2-astra") || !on.isAdvertisedOpenAIModel("o3") {
 		t.Fatalf("expected common OpenAI ids in the advertised list")
+	}
+}
+
+func TestOpenAIModelsOverrideBuiltinList(t *testing.T) {
+	s := &Server{cfg: &config.Config{
+		Models:                 []string{"smart"},
+		DefaultModel:           "smart",
+		OpenAICompatibleModels: true,
+		OpenAIModels: []string{
+			" gpt-6.2-astra ",
+			"",
+			"GPT-6.2-ASTRA", // duplicate, different case
+			"gpt-6.2-sol",
+		},
+	}}
+
+	ids, owner := s.advertisedModels()
+	if owner != "openai" {
+		t.Fatalf("owner = %q, want openai", owner)
+	}
+	if len(ids) != 2 || ids[0] != "gpt-6.2-astra" || ids[1] != "gpt-6.2-sol" {
+		t.Fatalf("ids = %v, want the trimmed/deduped override", ids)
+	}
+	if !s.isAdvertisedOpenAIModel("GPT-6.2-SOL") {
+		t.Fatal("override ids must match case-insensitively")
+	}
+	if s.isAdvertisedOpenAIModel("gpt-6-luna") {
+		t.Fatal("built-in ids must not leak into an explicit override")
+	}
+	if got := s.mapModel("gpt-6.2-sol"); got != "smart" {
+		t.Fatalf("mapModel(gpt-6.2-sol) = %q, want smart", got)
+	}
+}
+
+func TestOpenAIModelsIgnoredWhenFlagOff(t *testing.T) {
+	s := &Server{cfg: &config.Config{
+		Models:       []string{"smart"},
+		DefaultModel: "smart",
+		OpenAIModels: []string{"my-model"},
+	}}
+
+	ids, owner := s.advertisedModels()
+	if owner != "quickwork" || len(ids) != 1 || ids[0] != "smart" {
+		t.Fatalf("flag off must keep local aliases, got %v (%s)", ids, owner)
 	}
 }
 

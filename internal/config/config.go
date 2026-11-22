@@ -74,6 +74,10 @@ type Config struct {
 	// DefaultModel; the proxy never routes to OpenAI itself.
 	OpenAICompatibleModels bool `json:"openai_compatible_models"`
 
+	// OpenAIModels overrides the built-in OpenAI id list advertised when
+	// OpenAICompatibleModels is on. Empty keeps the built-in list.
+	OpenAIModels []string `json:"openai_models"`
+
 	// Path is the absolute config file path; not serialized.
 	Path string `json:"-"`
 }

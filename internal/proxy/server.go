@@ -504,7 +504,7 @@ func (s *Server) mapModel(model string) string {
 	default:
 		// Advertised OpenAI ids all resolve to the default model; that is the
 		// intended behaviour, not an unknown-model condition worth logging.
-		if s.cfg.OpenAICompatibleModels && isOpenAIModel(m) {
+		if s.cfg.OpenAICompatibleModels && s.isAdvertisedOpenAIModel(m) {
 			return s.cfg.DefaultModel
 		}
 		log.Printf("unknown model %q, using %s", model, s.cfg.DefaultModel)
