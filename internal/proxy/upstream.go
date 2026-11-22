@@ -54,6 +54,7 @@ type Usage struct {
 	TotalTokens      int
 	CacheReadTokens  int
 	CacheWriteTokens int
+	ReasoningTokens  int
 }
 
 func (u *Usage) add(v Usage) {
@@ -62,9 +63,11 @@ func (u *Usage) add(v Usage) {
 	u.TotalTokens += v.TotalTokens
 	u.CacheReadTokens += v.CacheReadTokens
 	u.CacheWriteTokens += v.CacheWriteTokens
+	u.ReasoningTokens += v.ReasoningTokens
 }
 
-// StreamEvent is a text delta or a completed tool call.
+// StreamEvent is a text delta, a reasoning (thinking) delta or a completed
+// tool call.
 type StreamEvent struct {
 	Type     string
 	Text     string
@@ -75,6 +78,7 @@ type EventFunc func(StreamEvent) error
 
 type ChatResult struct {
 	Text      string
+	Reasoning string
 	ToolCalls []ToolCallState
 	Usage     Usage
 }
@@ -303,6 +307,7 @@ func (u *Upstream) dialInfo(sess *Session) (wsURL string, headers http.Header, g
 func (u *Upstream) readEvents(ctx context.Context, conn *websocket.Conn, gateway bool, onEvent EventFunc) (ChatResult, error) {
 	var result ChatResult
 	var text strings.Builder
+	var reasoning strings.Builder
 	sawMessageComplete := false
 	var completeDeadline time.Time
 
@@ -350,6 +355,7 @@ func (u *Upstream) readEvents(ctx context.Context, conn *websocket.Conn, gateway
 	}
 	finish := func() (ChatResult, error) {
 		result.Text = text.String()
+		result.Reasoning = reasoning.String()
 		result.ToolCalls = result.ToolCalls[:0]
 		for _, id := range toolOrder {
 			tc := toolCalls[id]
@@ -403,7 +409,7 @@ func (u *Upstream) readEvents(ctx context.Context, conn *websocket.Conn, gateway
 			if emitErr != nil {
 				return res, emitErr
 			}
-			if text.Len() > 0 || len(toolOrder) > 0 {
+			if text.Len() > 0 || reasoning.Len() > 0 || len(toolOrder) > 0 {
 				return res, nil
 			}
 			return res, fmt.Errorf("upstream WebSocket read: %w", err)
@@ -464,6 +470,35 @@ func (u *Upstream) readEvents(ctx context.Context, conn *websocket.Conn, gateway
 				}
 			}
 			sawMessageComplete = true
+		case "thinking_delta", "reasoning_delta":
+			delta := deltaText(env.Payload)
+			if delta == "" {
+				continue
+			}
+			reasoning.WriteString(delta)
+			if onEvent != nil {
+				if err := onEvent(StreamEvent{Type: "reasoning", Text: delta}); err != nil {
+					res, _ := finish()
+					return res, err
+				}
+			}
+		case "thinking_complete", "reasoning_complete":
+			// Some turns only send the finished block; emit it when no deltas
+			// were streamed so the caller still receives the reasoning text.
+			if reasoning.Len() > 0 {
+				continue
+			}
+			full := thinkingText(env.Payload)
+			if full == "" {
+				continue
+			}
+			reasoning.WriteString(full)
+			if onEvent != nil {
+				if err := onEvent(StreamEvent{Type: "reasoning", Text: full}); err != nil {
+					res, _ := finish()
+					return res, err
+				}
+			}
 		case "turn_usage":
 			var p struct {
 				InputTokens      int `json:"input_tokens"`
@@ -471,14 +506,21 @@ func (u *Upstream) readEvents(ctx context.Context, conn *websocket.Conn, gateway
 				TotalTokens      int `json:"total_tokens"`
 				CacheReadTokens  int `json:"cache_read_tokens"`
 				CacheWriteTokens int `json:"cache_write_tokens"`
+				ReasoningTokens  int `json:"reasoning_tokens"`
+				ThinkingTokens   int `json:"thinking_tokens"`
 			}
 			if err := json.Unmarshal(env.Payload, &p); err == nil {
+				reasoningTokens := p.ReasoningTokens
+				if reasoningTokens == 0 {
+					reasoningTokens = p.ThinkingTokens
+				}
 				result.Usage.add(Usage{
 					PromptTokens:     p.InputTokens,
 					CompletionTokens: p.OutputTokens,
 					TotalTokens:      p.TotalTokens,
 					CacheReadTokens:  p.CacheReadTokens,
 					CacheWriteTokens: p.CacheWriteTokens,
+					ReasoningTokens:  reasoningTokens,
 				})
 			}
 		case "tool_start":
@@ -732,6 +774,28 @@ func deltaText(raw json.RawMessage) string {
 		return p.Delta
 	}
 	return p.Text
+}
+
+// thinkingText extracts the full reasoning block from a thinking_complete
+// payload, which may carry it under text, thinking or delta.
+func thinkingText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var p struct {
+		Text     string `json:"text"`
+		Thinking string `json:"thinking"`
+		Delta    string `json:"delta"`
+	}
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return ""
+	}
+	for _, s := range []string{p.Text, p.Thinking, p.Delta} {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func rawText(raw json.RawMessage) string {

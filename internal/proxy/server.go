@@ -185,7 +185,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		if len(toolCalls) == 0 {
 			toolCalls = filterToolCalls(res.ToolCalls, allowedTools, choiceMode, choiceName, parallelTools)
 		}
-		if strings.TrimSpace(text) == "" && len(toolCalls) == 0 {
+		if strings.TrimSpace(text) == "" && len(toolCalls) == 0 && strings.TrimSpace(res.Reasoning) == "" {
 			writeOpenAIError(w, http.StatusBadGateway, "upstream_error", "upstream returned no text or tool calls")
 			return
 		}
@@ -194,6 +194,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			message["content"] = nil
 		} else {
 			message["content"] = text
+		}
+		if strings.TrimSpace(res.Reasoning) != "" {
+			message["reasoning_content"] = res.Reasoning
 		}
 		if len(toolCalls) > 0 {
 			message["tool_calls"] = toolCalls
@@ -280,6 +283,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	sawText := false
 	sawTool := false
+	sawReasoning := false
 	var bridgeBuffer strings.Builder
 	toolIndex := 0
 	toolIndexes := make(map[string]int)
@@ -352,6 +356,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		res, err = s.upstream.Chat(ctx, sess, in, func(ev StreamEvent) error {
 			switch ev.Type {
+			case "reasoning":
+				if ev.Text == "" {
+					return nil
+				}
+				sawReasoning = true
+				writeChunk(map[string]any{"reasoning_content": ev.Text}, nil)
 			case "text":
 				if ev.Text == "" {
 					return nil
@@ -385,6 +395,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		// the next account in rotation.
 		sawText = false
 		sawTool = false
+		sawReasoning = false
 		bridgeBuffer.Reset()
 		toolIndex = 0
 		toolIndexes = make(map[string]int)
@@ -449,7 +460,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 		return
 	}
-	if !sawText && !sawTool {
+	if !sawText && !sawTool && !sawReasoning {
 		writeStreamError("upstream returned no text or tool calls")
 		_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 		flusher.Flush()
@@ -610,6 +621,9 @@ func usageMap(u Usage) map[string]any {
 	}
 	if u.CacheReadTokens > 0 {
 		m["prompt_tokens_details"] = map[string]any{"cached_tokens": u.CacheReadTokens}
+	}
+	if u.ReasoningTokens > 0 {
+		m["completion_tokens_details"] = map[string]any{"reasoning_tokens": u.ReasoningTokens}
 	}
 	return m
 }

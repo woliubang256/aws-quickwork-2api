@@ -21,6 +21,7 @@
 - 客户端 `tools` / `functions` 通过 `<client_tool_call>` 协议桥接；代理返回 OpenAI `tool_calls`，实际执行仍在客户端
 - 上游原生 `tool_start` / `tool_arguments` / `tool_result` 在名称匹配时也会转成 OpenAI `tool_calls`
 - 使用上游 `turn_usage` 返回 `usage` 与 `prompt_tokens_details.cached_tokens`
+- 上游 `thinking_delta` 转成 OpenAI 风格的 `reasoning_content`：流式在 `choices[0].delta.reasoning_content`，非流式在 `choices[0].message.reasoning_content`；上游 `turn_usage` 带 `reasoning_tokens` 时输出到 `completion_tokens_details`
 - `system` / `developer` 消息通过 QuickWork 原生 `system_prompt` 覆盖服务端基础提示词，并附加后端提示词覆盖声明，要求模型忽略上游追加的 system / agent 指令；不拼进 user 文本
 
 ## 环境要求
@@ -123,6 +124,14 @@ for chunk in client.chat.completions.create(
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
+流式响应里，思考过程放在 `choices[0].delta.reasoning_content`，正文仍走 `delta.content`；非流式在 `choices[0].message.reasoning_content`。对应 Python SDK：
+
+```python
+chunk.choices[0].delta.reasoning_content  # 可能为 None
+```
+
+不展示思考的客户端会忽略该字段，不影响原有行为。
+
 ## Docker
 
 镜像由 GitHub Actions 构建并推送到 GitHub Container Registry：
@@ -222,7 +231,7 @@ docker compose up -d
 | `surface` | `QUICK_WORK_DESKTOP_WINDOWS` | 上游握手使用的 surfaceType |
 | `outpost_id` / `working_session_id` | 空 | 上游握手可选字段 |
 | `timezone` / `locale` | `UTC` / `en-US` | `user_message` 中的时区与语言 |
-| `thinking_effort` | 空 | `off`、`low`、`medium`、`high` |
+| `thinking_effort` | 空 | `off`、`low`、`medium`、`high`；非 `off` 时上游的思考内容会以 `reasoning_content` 返回 |
 | `keep_sessions` | `false` | 保留上游会话，不在一轮结束后删除 |
 | `oauth.provider` | `social` | `login` 默认 provider |
 | `oauth.build_stage` | `prod` | `prod`、`beta`、`integ`、`dev` |
